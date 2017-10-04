@@ -5,10 +5,10 @@ import sys
 import hashlib
 import re
 
-API_KEY = '********************************************'
-API_SECRET = '*****************************************'
-ACCESS_TOKEN = '***************************************'
-ACCESS_TOKEN_SECRET = '********************************'
+API_KEY = 'Z8gdtzcCzHgGNJpLF4rB0wUKo'
+API_SECRET = 'bWc0TmAd68dyLZwwRSuEsaaRgo7ipRxxHZjn3Fz2nIm8lX3i0C'
+ACCESS_TOKEN = '475198489-x9gLHBANVLHoyhOYneiXzbOnOl5hDiEEqvz5NqWI'
+ACCESS_TOKEN_SECRET = 'Cr6J0hXKSoxi0B5QLk4aGwUxjPf098BAA4A9GExgvZvvm'
 
 MIN_STATUS_COUNT = 100
 MAX_FRIENDS_COUNT = 200
@@ -19,8 +19,12 @@ auth = tweepy.OAuthHandler(API_KEY, API_SECRET)
 auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 
 mytrack_crypto = ['monero', 'bitcoin', '#crypto', 'ethereum', 'zk-snark', 'ringct', 'segwit', 'Lightning Network','dapps', 'casper', 'cryptography', 'cryptoeconomics', '#LN']
-mytrack_new_tech = ['#IoT', '#AVR', '#AI' , '#data_mining', '#datamining', '#datascience', '#ML', 'neural', '#biotech', '#3dprinting', '#futurism', '#digitalrevolution', '#bigdata', 'VR', '#ANN' , '#drone']
-mylangs = ['en','ru']
+mytrack_new_tech = ['#keras', '#openNN', '#theano', '#deeplearning4j', '#tensorflow', 'supervised learning', 'clustering', '#NLP', 'confusion matrix', '#RMSE', 'chi square',
+                    '#timeseries', '#montecarlo', 'Bayesian', 'regression' ,'stochastic', '#markovchains', 'markov', 'poisson', 'xmpp', 'mqtt', 'd2d', 'd2s', 's2s', '#AVR', '#AI' ,
+                    '#datamining', '#dataanalytics', '#deeplearning', '#datascience', '#ML', '#neuralnetwork', '#biotech', '#3dprinting', '#futurism', '#VR', '#ANN' , '#drone']
+mylangs = ['en']
+blacklisted_users = ['arttechbot', 'EmpoweredHR', 'GameUP247', 'AInieuwsNL', 'BotDotSleep']
+blacklisted_words = ['Udemy', 'RT', '@spheris_io', '#Motivation']
 
 non_bmp_map = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
 non_bmp_map['\n'] = '\t'
@@ -36,35 +40,54 @@ def process_or_store(tweet):
 def check(status):
     hashed = hashlib.sha224(status.text.encode('UTF8')).hexdigest()
     if hashed in texts:
+        #print("Ignoring identical tweet")
         return False
     texts.append(hashed)    
     
     if len(texts) > 10000 :
         del texts[:200]  # delete fifo
 
-    include =  (not status.text.startswith('RT')) and ('@spheris_io' not in status.text) and ('#Motivation' not in status.text) \
-        and status.user.followers_count > MIN_FOLLOWERS_COUNT and status.user.friends_count <MAX_FRIENDS_COUNT \
+    # check  blocked users
+    for u in blacklisted_users:
+        if u in status.user.screen_name:
+            return False   
+
+    # check blacklisted words
+    for w in blacklisted_words:
+        if w in status.text:
+            return False
+
+    include =  status.user.followers_count > MIN_FOLLOWERS_COUNT and status.user.friends_count <MAX_FRIENDS_COUNT \
         and  MIN_STATUS_COUNT < status.user.statuses_count < MAX_STATUS_COUNT
 
     if not include:
         return False
 
-     #match links
+    #match links
     matches = pattern.findall(status.text)
     #print("Found %d match(es) " % (len(matches)))
-        
+    
+    output_text = "[" + status.user.screen_name + "][" + status.text.translate(non_bmp_map) + "]"
+    output_links = ''    
+
     for i in matches :
         if i in links:
             print("Saw this one already")
             return False
         else:
             links.append(i)
+            output_text = output_text.replace(i,'')
+            output_links+=("[" +  i +"]")
             #print("Added link:  %s" % (i))
-            with open('links3.txt', 'a') as f:
-                try:
-                    f.write("[" + status.user.screen_name + "][ " + status.text.translate(non_bmp_map).replace(i,'') +"][" +  i +"]\n")
-                except UnicodeEncodeError:
-                     f.write("[" + status.user.screen_name + "][ " + status.text.encode('UTF8').decode(sys.stdout.encoding).replace(i,'') +"][" +  i +"]\n")
+            
+    with open('links3.txt', 'a') as f:       
+        try:
+            f.write(output_text + output_links + "\n")
+        except BaseException as e:
+            #f.write("[" + status.user.screen_name + "][ " + status.text.encode('UTF8').decode(sys.stdout.encoding).replace(i,'') +"][" +  i +"]\n")
+            print("Giving up on this...")
+            return False    
+
     return True         
   
 
