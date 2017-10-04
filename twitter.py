@@ -14,6 +14,7 @@ MIN_STATUS_COUNT = 100
 MAX_FRIENDS_COUNT = 200
 MIN_FOLLOWERS_COUNT = 100
 MAX_STATUS_COUNT = 250000
+MAX_RECORDS_TO_PROCESS = 500000
 
 auth = tweepy.OAuthHandler(API_KEY, API_SECRET)
 auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
@@ -91,11 +92,11 @@ def check(status):
     return True         
   
 
-class Stream2Screen(tweepy.StreamListener):
+class MyStream(tweepy.StreamListener):
     def __init__(self, api=None):
         self.api = api  or API()
         self.n = 0
-        self.m = 200000
+        self.m = MAX_RECORDS_TO_PROCESS
 
     def on_status(self, status):
         try:
@@ -123,5 +124,5 @@ class Stream2Screen(tweepy.StreamListener):
             #print(status.text.encode('UTF8').decode(sys.stdout.encoding))
         return True
             
-stream = tweepy.streaming.Stream(auth, Stream2Screen())
+stream = tweepy.streaming.Stream(auth, MyStream())
 stream.filter(track=mytrack_new_tech, languages=mylangs)
