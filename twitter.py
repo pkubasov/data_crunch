@@ -4,6 +4,9 @@ from tweepy.api import API
 import sys
 import hashlib
 import re
+from urllib.parse import urlparse
+from http import client
+import requests
 
 API_KEY = '***********    your-key-here    **************'
 API_SECRET = '********    your-secret-here    ***********'
@@ -21,11 +24,14 @@ auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 
 mytrack_crypto = ['monero', 'bitcoin', '#crypto', 'ethereum', 'zk-snark', 'ringct', 'segwit', 'Lightning Network','dapps', 'casper', 'cryptography', 'cryptoeconomics', '#LN']
 mytrack_new_tech = ['#keras', '#openNN', '#theano', '#deeplearning4j', '#tensorflow', 'supervised learning', 'clustering', '#NLP', 'confusion matrix', '#RMSE', 'chi square',
-                    '#timeseries', '#montecarlo', 'Bayesian', 'regression' ,'stochastic', '#markovchains', 'markov', 'poisson', 'xmpp', 'mqtt', 'd2d', 'd2s', 's2s', '#AVR', '#AI' ,
-                    '#datamining', '#dataanalytics', '#deeplearning', '#datascience', '#ML', '#neuralnetwork', '#biotech', '#3dprinting', '#futurism', '#VR', '#ANN' , '#drone']
+                    '#timeseries', '#montecarlo', 'Bayesian', 'regression' ,'stochastic', '#markovchains', 'markov', 'poisson', 'xmpp', 'mqtt', 'd2d', 'd2s', 's2s', 'ergodicity', 
+                    '#datamining', '#dataanalytics', '#deeplearning', '#datascience', '#ML', '#neuralnetwork', '#biotech', '#3dprinting', '#futurism', '#ANN' , '#drone']
 mylangs = ['en']
-blacklisted_users = ['arttechbot', 'EmpoweredHR', 'GameUP247', 'AInieuwsNL', 'BotDotSleep']
-blacklisted_words = ['Udemy', 'RT', '@spheris_io', '#Motivation']
+blacklisted_users = ['arttechbot', 'EmpoweredHR', 'GameUP247', 'AInieuwsNL', 'BotDotSleep', 'CryptoPatron', 'DrStrange_Bot', 'a2b_bot', 'metabolic_ba']
+blacklisted_words = ['Udemy', 'RT', '@spheris_io', '#Motivation', '@SemanticEarth', 'trading']
+
+FILENAME_LINKS = 'links.txt'
+FILENAME_JSON = 'tweets.json'
 
 non_bmp_map = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
 non_bmp_map['\n'] = '\t'
@@ -36,7 +42,33 @@ pattern = re.compile("https\:\/\/t.co\/[a-zA-Z0-9]+")
 
 
 def process_or_store(tweet):
-    print(json.dumps(tweet))
+    with open(FILENAME_JSON, 'a') as f:
+        f.write(json.dumps(tweet)+ "\n")
+
+def unshorten_url(url):    
+    parsed = urlparse(url)
+    h = client.HTTPConnection(parsed.netloc)
+    resource = parsed.path
+    if parsed.query != "":
+        resource += "?" + parsed.query
+    h.request('HEAD', resource )
+    response = h.getresponse()
+    if response.status//100 == 3 and response.getheader('Location'):
+        return unshorten_url(response.getheader('Location'))  # changed to process chains of short urls
+    else:
+        print("URL: %s" % (url))
+        return url
+
+def unshorten_url2(url):
+    r = requests.head(url, allow_redirects = True)
+    parsedObj = urlparse(r.url)
+    parseUrl =  parsedObj.netloc + parsedObj.path
+    #print(parseUrl)
+    if r:
+        return parseUrl
+    else:
+        return url
+    
 
 def check(status):
     hashed = hashlib.sha224(status.text.encode('UTF8')).hexdigest()
@@ -65,27 +97,27 @@ def check(status):
         return False
 
     #match links
-    matches = pattern.findall(status.text)
-    #print("Found %d match(es) " % (len(matches)))
+    matches = pattern.findall(status.text)    
     
     output_text = "[" + status.user.screen_name + "][" + status.text.translate(non_bmp_map) + "]"
     output_links = ''    
 
     for i in matches :
-        if i in links:
+        i_s = unshorten_url2(i)
+        if 'twitter.com' in i_s:
+            continue
+        if i_s in links:
             print("Saw this one already")
             return False
         else:
-            links.append(i)
+            links.append(i_s)
             output_text = output_text.replace(i,'')
-            output_links+=("[" +  i +"]")
-            #print("Added link:  %s" % (i))
+            output_links+=("[http://" +  i_s +"]")           
             
-    with open('links3.txt', 'a') as f:       
+    with open(FILENAME_LINKS, 'a') as f:       
         try:
             f.write(output_text + output_links + "\n")
-        except BaseException as e:
-            #f.write("[" + status.user.screen_name + "][ " + status.text.encode('UTF8').decode(sys.stdout.encoding).replace(i,'') +"][" +  i +"]\n")
+        except BaseException as e:           
             print("Giving up on this...")
             return False    
 
@@ -99,12 +131,9 @@ class MyStream(tweepy.StreamListener):
         self.m = MAX_RECORDS_TO_PROCESS
 
     def on_status(self, status):
-        try:
-            with open('tweets.json', 'a') as f:
-                f.write(status.text.translate(non_bmp_map))
-                
+        try:               
             if check(status):
-                #print('\n\nUser id: %d ScreenName: %s Followers: %d  Follows: %d Statuses: %d '  % (status.user.id, status.user.screen_name, status.user.followers_count , status.user.friends_count, status.user.statuses_count))
+                process_or_store(status._json)
                 print ("\n\n[%s]: %s\n\n" % (status.user.screen_name, status.text.translate(non_bmp_map)))                                
                 self.n = self.n+1
                 
@@ -112,16 +141,14 @@ class MyStream(tweepy.StreamListener):
             else:
                 print ('tweets = '+str(self.n))
                 return False
-        except BaseException as e:
-            #print("Error on_status: %s" % str(e))
+        except BaseException as e:            
             if check(status):                
                 print ("\n\n[%s]: %s\n\n" % (status.user.screen_name,status.text.encode('UTF8').decode(sys.stdout.encoding)))
             return True
 
     def on_error(self,status):
         if check(status):
-            print("Caught error")
-            #print(status.text.encode('UTF8').decode(sys.stdout.encoding))
+            print("Caught error")            
         return True
             
 stream = tweepy.streaming.Stream(auth, MyStream())
