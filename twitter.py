@@ -5,10 +5,10 @@ import sys
 import hashlib
 import re
 
-API_KEY = 'Z8gdtzcCzHgGNJpLF4rB0wUKo'
-API_SECRET = 'bWc0TmAd68dyLZwwRSuEsaaRgo7ipRxxHZjn3Fz2nIm8lX3i0C'
-ACCESS_TOKEN = '475198489-x9gLHBANVLHoyhOYneiXzbOnOl5hDiEEqvz5NqWI'
-ACCESS_TOKEN_SECRET = 'Cr6J0hXKSoxi0B5QLk4aGwUxjPf098BAA4A9GExgvZvvm'
+API_KEY = '***********    your-key-here    **************'
+API_SECRET = '********    your-secret-here    ***********'
+ACCESS_TOKEN = '******    your-access-token-here    *****'
+ACCESS_TOKEN_SECRET = '** your-access-token-secret-here *'
 
 MIN_STATUS_COUNT = 100
 MAX_FRIENDS_COUNT = 200
