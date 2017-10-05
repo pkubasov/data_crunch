@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from http import client
 import requests
 
+
 API_KEY = '***********    your-key-here    **************'
 API_SECRET = '********    your-secret-here    ***********'
 ACCESS_TOKEN = '******    your-access-token-here    *****'
@@ -15,7 +16,7 @@ ACCESS_TOKEN_SECRET = '** your-access-token-secret-here *'
 
 MIN_STATUS_COUNT = 100
 MAX_FRIENDS_COUNT = 200
-MIN_FOLLOWERS_COUNT = 100
+MIN_FOLLOWERS_COUNT = 50
 MAX_STATUS_COUNT = 250000
 MAX_RECORDS_TO_PROCESS = 500000
 
@@ -23,18 +24,17 @@ auth = tweepy.OAuthHandler(API_KEY, API_SECRET)
 auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 
 mytrack_crypto = ['monero', 'bitcoin', '#crypto', 'ethereum', 'zk-snark', 'ringct', 'segwit', 'Lightning Network','dapps', 'casper', 'cryptography', 'cryptoeconomics', '#LN']
-mytrack_new_tech = ['#keras', '#openNN', '#theano', '#deeplearning4j', '#tensorflow', 'supervised learning', 'clustering', '#NLP', 'confusion matrix', '#RMSE', 'chi square',
-                    '#timeseries', '#montecarlo', 'Bayesian', 'regression' ,'stochastic', '#markovchains', 'markov', 'poisson', 'xmpp', 'mqtt', 'd2d', 'd2s', 's2s', 'ergodicity', 
-                    '#datamining', '#dataanalytics', '#deeplearning', '#datascience', '#ML', '#neuralnetwork', '#biotech', '#3dprinting', '#futurism', '#ANN' , '#drone']
+mytrack_new_tech = ['#keras', '#openNN', '#theano', '#deeplearning4j', '#tensorflow', 'supervised learning', 'clustering', '#NLP', 'confusion matrix', '#fuzzylogic',
+                    '#timeseries', '#montecarlo', 'Bayesian', 'regression' ,'stochastic', '#markovchains', 'markov', 'poisson', 'xmpp', 'mqtt', 'ergodic', 'random walk',  
+                    '#neuralnetwork', '#ANN' , '#Jupyter', '#PyTorch', '#CNTK', '#MMLSpark', 'Azure Machine', 'Boltzmann']
 mylangs = ['en']
-blacklisted_users = ['arttechbot', 'EmpoweredHR', 'GameUP247', 'AInieuwsNL', 'BotDotSleep', 'CryptoPatron', 'DrStrange_Bot', 'a2b_bot', 'metabolic_ba']
-blacklisted_words = ['Udemy', 'RT', '@spheris_io', '#Motivation', '@SemanticEarth', 'trading']
+blacklisted_users = ['arttechbot', 'EmpoweredHR', 'GameUP247', 'AInieuwsNL', 'BotDotSleep', 'CryptoPatron', 'DrStrange_Bot', 'a2b_bot', 'metabolic_ba', 'ktsnw', 'quantbot']
+blacklisted_words = ['Udemy', 'RT', '@spheris_io', '#Motivation', '@SemanticEarth', 'trading', 'trade', 'trading', 'workshop', 'oversold', 'overbought', 'buy', 'sell']
 
 FILENAME_LINKS = 'links.txt'
 FILENAME_JSON = 'tweets.json'
 
 non_bmp_map = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
-non_bmp_map['\n'] = '\t'
 
 texts = []
 links = []
@@ -62,7 +62,7 @@ def unshorten_url(url):
 def unshorten_url2(url):
     r = requests.head(url, allow_redirects = True)
     parsedObj = urlparse(r.url)
-    parseUrl =  parsedObj.netloc + parsedObj.path
+    parseUrl = parsedObj.netloc + parsedObj.path
     #print(parseUrl)
     if r:
         return parseUrl
@@ -82,12 +82,12 @@ def check(status):
 
     # check  blocked users
     for u in blacklisted_users:
-        if u in status.user.screen_name:
+        if u.upper() in status.user.screen_name.upper():
             return False   
 
     # check blacklisted words
     for w in blacklisted_words:
-        if w in status.text:
+        if w.upper() in status.text.upper():
             return False
 
     include =  status.user.followers_count > MIN_FOLLOWERS_COUNT and status.user.friends_count <MAX_FRIENDS_COUNT \
@@ -100,6 +100,8 @@ def check(status):
     matches = pattern.findall(status.text)    
     
     output_text = "[" + status.user.screen_name + "][" + status.text.translate(non_bmp_map) + "]"
+    # remove newlines
+    output_text = re.sub(r"(\r)?\n", " ", output_text)
     output_links = ''    
 
     for i in matches :
@@ -107,7 +109,7 @@ def check(status):
         if 'twitter.com' in i_s:
             continue
         if i_s in links:
-            print("Saw this one already")
+            # print("Saw this one already")
             return False
         else:
             links.append(i_s)
@@ -134,7 +136,7 @@ class MyStream(tweepy.StreamListener):
         try:               
             if check(status):
                 process_or_store(status._json)
-                print ("\n\n[%s]: %s\n\n" % (status.user.screen_name, status.text.translate(non_bmp_map)))                                
+                print ("\n[%s]: %s\n" % (status.user.screen_name, re.sub(r"(\r)?\n", " ", status.text.translate(non_bmp_map))))                                
                 self.n = self.n+1
                 
             if self.n < self.m: return True
@@ -143,7 +145,7 @@ class MyStream(tweepy.StreamListener):
                 return False
         except BaseException as e:            
             if check(status):                
-                print ("\n\n[%s]: %s\n\n" % (status.user.screen_name,status.text.encode('UTF8').decode(sys.stdout.encoding)))
+                print ("\n[%s]: %s\n\n" % (status.user.screen_name,status.text.encode('UTF8').decode(sys.stdout.encoding)))
             return True
 
     def on_error(self,status):
